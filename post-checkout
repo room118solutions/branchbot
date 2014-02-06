@@ -43,7 +43,7 @@ if ARGV[2] == '1'
 
   # Don't do anything if the source and destination branches are the same or nonexistent
   unless @source_branch == @destination_branch || [@source_branch, @destination_branch].any?{ |b| b == '' }
-    # Dump databases for source branch
+    # Dump database for source branch
     if dump(dev_database_name, @source_branch)
       # Restore dump from this branch, if it exists
       dump_path = "#{@dump_folder}/#{dev_database_name}-#{@destination_branch}"
