@@ -5,7 +5,7 @@ require 'yaml'
 # If this was a branch checkout
 if ARGV[2] == '1'
   def dump(database_name, branch_name)
-    print "Dumping #{database_name}..."
+    print "Saving state of #{database_name} on '#{branch_name}' branch..."
 
     if system(%[pg_dump -c -f "#{@dump_folder}/#{database_name}-#{branch_name}" #{database_name}])
       print "done!\n"
@@ -20,13 +20,17 @@ if ARGV[2] == '1'
     system(%[psql #{database_name} < #{path} > /dev/null 2>&1])
   end
 
-  def branch_from_refhead(ref)
-    `git show-ref --heads | grep #{ref} | awk '{print $2}'`.strip.sub(/^refs\/heads\//, '')
+  def branches_from_refhead(ref)
+    `git show-ref --heads | grep #{ref} | awk '{print $2}'`.split("\n").map{ |b| b.sub(/^refs\/heads\//, '') }
   end
 
-  # Get the source and destination branches
-  @source_branch = branch_from_refhead(ARGV[0])
-  @destination_branch = branch_from_refhead(ARGV[1])
+  # Get the current (destination) branch
+  @destination_branch = `git rev-parse --abbrev-ref HEAD`.strip
+
+  # Since we're just given a commit ID referencing the branch head we're coming from,
+  # it could be at the head of multiple branches. We can assume the source isn't the same as the
+  # destination branch, so we can remove that immediately.
+  @source_branches = branches_from_refhead(ARGV[0]).reject{ |b| b == @destination_branch }
 
   @project_root = %x[git rev-parse --show-toplevel].strip
   @dump_folder = "#{@project_root}/.db_branch_dumps"
@@ -42,9 +46,9 @@ if ARGV[2] == '1'
   end
 
   # Don't do anything if the source and destination branches are the same or nonexistent
-  unless @source_branch == @destination_branch || [@source_branch, @destination_branch].any?{ |b| b == '' }
-    # Dump database for source branch
-    if dump(dev_database_name, @source_branch)
+  unless @source_branches.include?(@destination_branch) || @source_branches.empty? || (@source_branches | [@destination_branch]).any?{ |b| b == '' }
+    # Dump database for source branches
+    if @source_branches.all? { |branch| dump(dev_database_name, branch) }
       # Restore dump from this branch, if it exists
       dump_path = "#{@dump_folder}/#{dev_database_name}-#{@destination_branch}"
 
@@ -74,7 +78,7 @@ if ARGV[2] == '1'
         end
       else
         print "No DB dump for #{dev_database_name} on the '#{@destination_branch}' branch was found!\n"
-        print "The state of your database has been saved for when you return to the '#{@source_branch}' branch, but its current state has been left unchanged.  You are now free to make changes to it that are specific to this branch, and they will be saved when you checkout a different branch, then restored when you checkout this one again.\n"
+        print "The state of your database has been saved for when you return to the '#{@source_branches.join('\' or \'')}' branch, but its current state has been left unchanged.  You are now free to make changes to it that are specific to this branch, and they will be saved when you checkout a different branch, then restored when you checkout this one again.\n"
       end
     else
       print "Failed to dump database. Halting.\n"
