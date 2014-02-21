@@ -79,7 +79,7 @@ if ARGV[2] == '1'
   def pg_restore_cmd(env, path)
     database_name = @rails_db_config[env]['database']
 
-    %[psql #{database_name} < #{path} > /dev/null 2>&1]
+    %[psql #{database_name} < "#{path}" > /dev/null 2>&1]
   end
 
   def mysql_restore_cmd(env, path)
@@ -87,7 +87,7 @@ if ARGV[2] == '1'
     username = @rails_db_config[env]['username']
     password = @rails_db_config[env]['password']
 
-    %[mysql -u #{username} --password="#{password}" #{database_name} < #{path}]
+    %[mysql -u #{username} --password="#{password}" #{database_name} < "#{path}"]
   end
 
   def branches_from_refhead(ref)
