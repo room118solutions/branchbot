@@ -48,7 +48,7 @@ if ARGV[2] == '1'
   def pg_dump_cmd(env, branch_name)
     database_name = @rails_db_config[env]['database']
 
-    %[pg_dump -c -f "#{@dump_folder}/#{database_name}-#{branch_name}" #{database_name}]
+    %[pg_dump --clean --file="#{@dump_folder}/#{database_name}-#{branch_name}" #{database_name}]
   end
 
   def mysql_dump_cmd(env, branch_name)
