@@ -13,4 +13,4 @@ Alternatively, you can clone this repository to your computer then symlink the `
 
 # Support
 
-Only PostgreSQL databases are currently supported.
+Only PostgreSQL and MySQL databases are currently supported.
