@@ -2,22 +2,92 @@
 
 require 'yaml'
 
+class UnsupportedDatabaseAdapter < RuntimeError
+
+  attr_reader :adapter
+
+  def initialize(adapter)
+    @adapter = adapter
+  end
+
+  def message
+    "Adapter `#{adapter}` is not supported."
+  end
+
+end
+
 # If this was a branch checkout
 if ARGV[2] == '1'
-  def dump(database_name, branch_name)
-    print "Saving state of #{database_name} on '#{branch_name}' branch..."
+  def dump(env, branch_name)
+    print "Saving state of #{env} database on '#{branch_name}' branch..."
 
-    if system(%[pg_dump -c -f "#{@dump_folder}/#{database_name}-#{branch_name}" #{database_name}])
+    if system(dump_cmd(env, branch_name))
       print "done!\n"
       true
     else
       print "failed!\n"
       false
     end
+  rescue UnsupportedDatabaseAdapter => e
+    puts "\nERROR: #{e.message}"
   end
 
-  def restore(database_name, path)
-    system(%[psql #{database_name} < #{path} > /dev/null 2>&1])
+  def dump_cmd(env, branch_name)
+    adapter = @rails_db_config[env]['adapter']
+
+    case adapter
+    when 'postgresql'
+      pg_dump_cmd(env, branch_name)
+    when 'mysql2'
+      mysql_dump_cmd(env, branch_name)
+    else
+      raise UnsupportedDatabaseAdapter.new(adapter)
+    end
+  end
+
+  def pg_dump_cmd(env, branch_name)
+    database_name = @rails_db_config[env]['database']
+
+    %[pg_dump -c -f "#{@dump_folder}/#{database_name}-#{branch_name}" #{database_name}]
+  end
+
+  def mysql_dump_cmd(env, branch_name)
+    database_name = @rails_db_config[env]['database']
+    username = @rails_db_config[env]['username']
+    password = @rails_db_config[env]['password']
+
+    %[mysqldump --user=#{username} --password="#{password}" #{database_name} > "#{@dump_folder}/#{database_name}-#{branch_name}"]
+  end
+
+  def restore(env, path)
+    system(restore_cmd(env, path))
+  end
+
+  def restore_cmd(env, path)
+    adapter = @rails_db_config[env]['adapter']
+
+    case adapter
+    when 'postgresql'
+      pg_restore_cmd(env, path)
+    when 'mysql2'
+      mysql_restore_cmd(env, path)
+    else
+      raise UnsupportedDatabaseAdapter.new(adapter)
+    end
+  end
+
+  def pg_restore_cmd(env, path)
+    database_name = @rails_db_config[env]['database']
+
+    %[psql #{database_name} < "#{path}" > /dev/null 2>&1]
+  end
+
+  def mysql_restore_cmd(env, path)
+    database_name = @rails_db_config[env]['database']
+    username = @rails_db_config[env]['username']
+    password = @rails_db_config[env]['password']
+
+    %[mysql -u #{username} --password="#{password}" #{database_name} < "#{path}"]
   end
 
   def branches_from_refhead(ref)
@@ -36,9 +106,9 @@ if ARGV[2] == '1'
   @dump_folder = "#{@project_root}/.db_branch_dumps"
 
   # Load Rails DB config and grab database name
-  rails_db_config = YAML.load_file("#{@project_root}/config/database.yml")
-  dev_database_name = rails_db_config['development']['database']
-  test_database_name = rails_db_config['test']['database']
+  @rails_db_config = YAML.load_file("#{@project_root}/config/database.yml")
+  dev_database_name = @rails_db_config['development']['database']
+  test_database_name = @rails_db_config['test']['database']
 
   # Ensure dump directory exists
   unless Dir.exists?(@dump_folder)
@@ -48,14 +118,14 @@ if ARGV[2] == '1'
   # Don't do anything if the source and destination branches are the same or nonexistent
   unless @source_branches.include?(@destination_branch) || @source_branches.empty? || (@source_branches | [@destination_branch]).any?{ |b| b == '' }
     # Dump database for source branches
-    if @source_branches.all? { |branch| dump(dev_database_name, branch) }
+    if @source_branches.all? { |branch| dump('development', branch) }
       # Restore dump from this branch, if it exists
       dump_path = "#{@dump_folder}/#{dev_database_name}-#{@destination_branch}"
 
       if File.exists?(dump_path)
         print "Restoring #{dev_database_name} to its previous state on this branch..."
 
-        if restore(dev_database_name, dump_path)
+        if restore('development', dump_path)
           print "done!\n"
 
           # If we have a structure.sql file, restore that to the test database,
@@ -65,7 +135,7 @@ if ARGV[2] == '1'
           if File.exists?(structure_sql)
             print "Restoring test database from structure.sql..."
 
-            print restore(test_database_name, structure_sql) ? "done!\n" : "failed!\n"
+            print restore('test', structure_sql) ? "done!\n" : "failed!\n"
           else
             print "Preparing test database..."
 
