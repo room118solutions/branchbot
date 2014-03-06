@@ -56,7 +56,7 @@ if ARGV[2] == '1'
     username = @rails_db_config[env]['username']
     password = @rails_db_config[env]['password']
 
-    %[mysqldump --user=#{username} --password="#{password}" #{database_name} > "#{@dump_folder}/#{database_name}-#{branch_name}"]
+    %[mysqldump --add-drop-database --user=#{username} --password="#{password}" --databases #{database_name} > "#{@dump_folder}/#{database_name}-#{branch_name}"]
   end
 
   def restore(env, path)
