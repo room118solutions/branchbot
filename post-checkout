@@ -135,12 +135,14 @@ if ARGV[2] == '1'
             print "Restoring test database from structure.sql..."
 
             print restore('test', structure_sql) ? "done!\n" : "failed!\n"
-          else
+          elsif File.exists?("#{@project_root}/Rakefile")
             print "Preparing test database..."
 
             system %[rake db:test:prepare]
 
             print "done!\n"
+          else
+            print "No structure.sql or Rakefile detected, skipping test database restoration\n"
           end
         else
           print "failed!\n"
