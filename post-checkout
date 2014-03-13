@@ -108,7 +108,6 @@ if ARGV[2] == '1'
   # Load Rails DB config and grab database name
   @rails_db_config = YAML.load_file("#{@project_root}/config/database.yml")
   dev_database_name = @rails_db_config['development']['database']
-  test_database_name = @rails_db_config['test']['database']
 
   # Ensure dump directory exists
   unless Dir.exists?(@dump_folder)
