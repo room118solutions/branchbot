@@ -48,7 +48,7 @@ if ARGV[2] == '1'
   def pg_dump_cmd(env, branch_name)
     database_name = @rails_db_config[env]['database']
 
-    %[pg_dump --clean --file="#{@dump_folder}/#{database_name}-#{branch_name}" #{database_name}]
+    %[pg_dump --file="#{@dump_folder}/#{database_name}-#{branch_name}" #{database_name}]
   end
 
   def mysql_dump_cmd(env, branch_name)
@@ -56,7 +56,7 @@ if ARGV[2] == '1'
     username = @rails_db_config[env]['username']
     password = @rails_db_config[env]['password']
 
-    %[mysqldump --user=#{username} --password="#{password}" #{database_name} > "#{@dump_folder}/#{database_name}-#{branch_name}"]
+    %[mysqldump --add-drop-database --user=#{username} --password="#{password}" --databases #{database_name} > "#{@dump_folder}/#{database_name}-#{branch_name}"]
   end
 
   def restore(env, path)
@@ -79,7 +79,24 @@ if ARGV[2] == '1'
   def pg_restore_cmd(env, path)
     database_name = @rails_db_config[env]['database']
 
-    %[psql #{database_name} < "#{path}" > /dev/null 2>&1]
+    drop_existing_pg_connections_to_database(database_name)
+
+    drop_pg_database(database_name)
+    create_pg_database(database_name)
+
+    %[psql --file="#{path}" #{database_name} > /dev/null]
+  end
+
+  def drop_existing_pg_connections_to_database(database_name)
+    system(%[psql --command="SELECT pg_terminate_backend(pg_stat_activity.pid) FROM pg_stat_activity WHERE pg_stat_activity.datname = '#{database_name}' AND pid <> pg_backend_pid();" postgres > /dev/null])
+  end
+
+  def drop_pg_database(database_name)
+    system(%[dropdb #{database_name}])
+  end
+
+  def create_pg_database(database_name)
+    system(%[createdb #{database_name}])
   end
 
   def mysql_restore_cmd(env, path)
