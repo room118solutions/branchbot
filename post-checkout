@@ -155,7 +155,11 @@ if ARGV[2] == '1'
           elsif File.exists?("#{@project_root}/Rakefile")
             print "Preparing test database..."
 
-            system %[rake db:test:prepare]
+            rake_cmd = "rake db:test:prepare"
+
+            rake_cmd = "bundle exec #{rake_cmd}" if File.exists?("#{@project_root}/Gemfile")
+
+            system rake_cmd
 
             print "done!\n"
           else
