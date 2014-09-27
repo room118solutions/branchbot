@@ -118,6 +118,22 @@ if ARGV[2] == '1'
     `git show-ref --heads | grep #{ref} | awk '{print $2}'`.split("\n").map{ |b| b.sub(/^refs\/heads\//, '') }
   end
 
+  def restore_from_dump(env, dump_path)
+    if File.exists?(dump_path)
+      print "Restoring #{env} database to its previous state on this branch..."
+
+      if restore(env, dump_path)
+        print "done!\n"
+      else
+        print "failed!\n"
+      end
+    else
+      print "No DB dump for #{env} database on the '#{@destination_branch}' branch was found!\n"
+      print "The state of your database has been saved for when you return to the '#{@source_branches.join('\' or \'')}' branch, but its current state has been left unchanged.\n"
+      print "You are now free to make changes to it that are specific to this branch, and they will be saved when you checkout a different branch, then restored when you checkout this one again.\n"
+    end
+  end
+
   # Get the current (destination) branch
   @destination_branch = `git rev-parse --abbrev-ref HEAD`.strip
 
@@ -132,6 +148,7 @@ if ARGV[2] == '1'
   # Load Rails DB config and grab database name
   @rails_db_config = YAML.load_file("#{@project_root}/config/database.yml")
   dev_database_name = erb_result(@rails_db_config['development']['database'])
+  test_database_name = erb_result(@rails_db_config['test']['database'])
 
   # Ensure dump directory exists
   unless Dir.exists?(@dump_folder)
@@ -141,44 +158,16 @@ if ARGV[2] == '1'
   # Don't do anything if the source and destination branches are the same or nonexistent
   unless @source_branches.include?(@destination_branch) || @source_branches.empty? || (@source_branches | [@destination_branch]).any?{ |b| b == '' }
     # Dump database for source branches
-    if @source_branches.all? { |branch| dump('development', branch) }
+    all_dumped = @source_branches.all? { |branch|
+      dump('development', branch) && dump('test', branch)
+    }
+
+    if all_dumped
       # Restore dump from this branch, if it exists
-      dump_path = "#{@dump_folder}/#{dev_database_name}-#{@destination_branch}"
-
-      if File.exists?(dump_path)
-        print "Restoring #{dev_database_name} to its previous state on this branch..."
-
-        if restore('development', dump_path)
-          print "done!\n"
-
-          # If we have a structure.sql file, restore that to the test database,
-          # otherwise fall back to rake
-          structure_sql = File.join(@project_root, 'db', 'structure.sql')
-
-          if File.exists?(structure_sql)
-            print "Restoring test database from structure.sql..."
-
-            print restore('test', structure_sql) ? "done!\n" : "failed!\n"
-          elsif File.exists?("#{@project_root}/Rakefile")
-            print "Preparing test database..."
-
-            rake_cmd = "rake db:test:prepare"
-
-            rake_cmd = "bundle exec #{rake_cmd}" if File.exists?("#{@project_root}/Gemfile")
-
-            system rake_cmd
-
-            print "done!\n"
-          else
-            print "No structure.sql or Rakefile detected, skipping test database restoration\n"
-          end
-        else
-          print "failed!\n"
-        end
-      else
-        print "No DB dump for #{dev_database_name} on the '#{@destination_branch}' branch was found!\n"
-        print "The state of your database has been saved for when you return to the '#{@source_branches.join('\' or \'')}' branch, but its current state has been left unchanged.  You are now free to make changes to it that are specific to this branch, and they will be saved when you checkout a different branch, then restored when you checkout this one again.\n"
-      end
+      dump_dev_path = "#{@dump_folder}/#{dev_database_name}-#{@destination_branch}"
+      dump_test_path = "#{@dump_folder}/#{test_database_name}-#{@destination_branch}"
+      restore_from_dump('development', dump_dev_path)
+      restore_from_dump('test', dump_test_path)
     else
       print "Failed to dump database. Halting.\n"
     end
