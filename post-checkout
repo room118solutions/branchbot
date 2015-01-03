@@ -164,7 +164,11 @@ if ARGV[2] == '1'
 
             rake_cmd = "rake db:test:prepare"
 
-            rake_cmd = "bundle exec #{rake_cmd}" if File.exists?("#{@project_root}/Gemfile")
+            if File.exists?("#{@project_root}/bin/rake")
+              rake_cmd = "./bin/#{rake_cmd}"
+            elsif File.exists?("#{@project_root}/Gemfile")
+              rake_cmd = "bundle exec #{rake_cmd}"
+            end
 
             system rake_cmd
 
