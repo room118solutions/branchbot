@@ -32,6 +32,13 @@ if ARGV[2] == '1'
     puts "\nERROR: #{e.message}"
   end
 
+  def dump_file(database_name, branch_name)
+    # Replace any special characters that may cause file system issues
+    branch_name = branch_name.gsub(/[^0-9a-z.\-_]/i, '_')
+
+    "#{@dump_folder}/#{database_name}-#{branch_name}"
+  end
+
   def dump_cmd(env, branch_name)
     adapter = @rails_db_config[env]['adapter']
 
@@ -48,7 +55,7 @@ if ARGV[2] == '1'
   def pg_dump_cmd(env, branch_name)
     database_name = @rails_db_config[env]['database']
 
-    %[pg_dump --file="#{@dump_folder}/#{database_name}-#{branch_name}" #{database_name}]
+    %[pg_dump --file="#{dump_file(database_name, branch_name)}" #{database_name}]
   end
 
   def mysql_dump_cmd(env, branch_name)
@@ -56,7 +63,7 @@ if ARGV[2] == '1'
     username = @rails_db_config[env]['username']
     password = @rails_db_config[env]['password']
 
-    %[mysqldump --add-drop-database --user=#{username} --password="#{password}" --databases #{database_name} > "#{@dump_folder}/#{database_name}-#{branch_name}"]
+    %[mysqldump --add-drop-database --user=#{username} --password="#{password}" --databases #{database_name} > "#{dump_file(database_name, branch_name)}"]
   end
 
   def restore(env, path)
@@ -136,7 +143,7 @@ if ARGV[2] == '1'
     # Dump database for source branches
     if @source_branches.all? { |branch| dump('development', branch) }
       # Restore dump from this branch, if it exists
-      dump_path = "#{@dump_folder}/#{dev_database_name}-#{@destination_branch}"
+      dump_path = dump_file(dev_database_name, @destination_branch)
 
       if File.exists?(dump_path)
         print "Restoring #{dev_database_name} to its previous state on this branch..."
