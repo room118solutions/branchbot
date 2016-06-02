@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
 require 'yaml'
+require 'erb'
 
 class UnsupportedDatabaseAdapter < RuntimeError
 
@@ -130,7 +131,7 @@ if ARGV[2] == '1'
   @dump_folder = "#{@project_root}/.db_branch_dumps"
 
   # Load Rails DB config and grab database name
-  @rails_db_config = YAML.load_file("#{@project_root}/config/database.yml")
+  @rails_db_config = YAML.load(ERB.new(File.read("#{@project_root}/config/database.yml")).result)
   dev_database_name = @rails_db_config['development']['database']
 
   # Ensure dump directory exists
