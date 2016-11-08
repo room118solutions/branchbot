@@ -17,106 +17,147 @@ class UnsupportedDatabaseAdapter < RuntimeError
 
 end
 
-# If this was a branch checkout
-if ARGV[2] == '1'
-  def dump(env, branch_name)
-    print "Saving state of #{env} database on '#{branch_name}' branch..."
+class AbstractAdapter
 
-    if system(dump_cmd(env, branch_name))
+  def self.build(config, dump_folder)
+    klass = case config['adapter']
+    when 'postgresql'
+      PostgreSQLAdapter
+    when 'mysql2'
+      MySQLAdapter
+    else
+      raise UnsupportedDatabaseAdapter.new(config['adapter'])
+    end
+
+    klass.new(config, dump_folder)
+  end
+
+  def initialize(config, dump_folder)
+    @config = config
+    @database_name = config['database']
+
+    @dump_folder = dump_folder
+  end
+
+  def dump(branch_name)
+    print "Saving state of database on '#{branch_name}' branch..."
+
+    if system(dump_cmd(branch_name))
       print "done!\n"
       true
     else
       print "failed!\n"
       false
     end
-  rescue UnsupportedDatabaseAdapter => e
-    puts "\nERROR: #{e.message}"
   end
 
-  def dump_file(database_name, branch_name)
+  def dump_exists?(branch_name)
+    File.exists?(dump_file(branch_name))
+  end
+
+  def restore(branch_name)
+    print "Restoring #{database_name} to its previous state on this branch..."
+
+    if system(restore_cmd(branch_name))
+      print "done!\n"
+      true
+    else
+      print "failed!\n"
+      false
+    end
+  end
+
+  private
+
+  attr_reader :dump_folder, :database_name
+
+  def dump_cmd(branch_name)
+    raise NotImplementedError
+  end
+
+  def restore_cmd(branch_name)
+    raise NotImplementedError
+  end
+
+  def dump_file(branch_name)
     # Replace any special characters that may cause file system issues
     branch_name = branch_name.gsub(/[^0-9a-z.\-_]/i, '_')
 
-    "#{@dump_folder}/#{database_name}-#{branch_name}"
+    "#{dump_folder}/#{database_name}-#{branch_name}"
   end
 
-  def dump_cmd(env, branch_name)
-    adapter = @rails_db_config[env]['adapter']
+end
 
-    case adapter
-    when 'postgresql'
-      pg_dump_cmd(env, branch_name)
-    when 'mysql2'
-      mysql_dump_cmd(env, branch_name)
-    else
-      raise UnsupportedDatabaseAdapter.new(adapter)
-    end
+class MySQLAdapter < AbstractAdapter
+
+  def initialize(*)
+    super
+
+    @username = @config['username']
+    @password = @config['password']
   end
 
-  def pg_dump_cmd(env, branch_name)
-    database_name = @rails_db_config[env]['database']
+  private
 
-    %[pg_dump --file="#{dump_file(database_name, branch_name)}" #{database_name}]
+  attr_reader :username, :password
+
+  def dump_cmd(branch_name)
+    %[mysqldump --add-drop-database --user=#{username} --password="#{password}" --databases #{database_name} > "#{dump_file(branch_name)}"]
   end
 
-  def mysql_dump_cmd(env, branch_name)
-    database_name = @rails_db_config[env]['database']
-    username = @rails_db_config[env]['username']
-    password = @rails_db_config[env]['password']
-
-    %[mysqldump --add-drop-database --user=#{username} --password="#{password}" --databases #{database_name} > "#{dump_file(database_name, branch_name)}"]
+  def restore_cmd(branch_name)
+    %[mysql -u #{username} --password="#{password}" #{database_name} < "#{dump_file(branch_name)}"]
   end
 
-  def restore(env, path)
-    system(restore_cmd(env, path))
+end
+
+class PostgreSQLAdapter < AbstractAdapter
+
+  private
+
+  def dump_cmd(branch_name)
+    %[pg_dump --file="#{dump_file(branch_name)}" #{database_name}]
   end
 
-  def restore_cmd(env, path)
-    adapter = @rails_db_config[env]['adapter']
-
-    case adapter
-    when 'postgresql'
-      pg_restore_cmd(env, path)
-    when 'mysql2'
-      mysql_restore_cmd(env, path)
-    else
-      raise UnsupportedDatabaseAdapter.new(adapter)
-    end
-  end
-
-  def pg_restore_cmd(env, path)
-    database_name = @rails_db_config[env]['database']
-
-    drop_existing_pg_connections_to_database(database_name)
-
-    drop_pg_database(database_name)
-    create_pg_database(database_name)
-
-    %[psql --file="#{path}" #{database_name} > /dev/null]
-  end
-
-  def drop_existing_pg_connections_to_database(database_name)
+  def restore_cmd(branch_name)
+    # Drop existing connections
     system(%[psql --command="SELECT pg_terminate_backend(pg_stat_activity.pid) FROM pg_stat_activity WHERE pg_stat_activity.datname = '#{database_name}' AND pid <> pg_backend_pid();" postgres > /dev/null])
-  end
 
-  def drop_pg_database(database_name)
+    # Drop database
     system(%[dropdb #{database_name}])
-  end
 
-  def create_pg_database(database_name)
+    # Create database
     system(%[createdb #{database_name}])
+
+    %[psql --file="#{dump_file(branch_name)}" #{database_name} > /dev/null]
   end
 
-  def mysql_restore_cmd(env, path)
-    database_name = @rails_db_config[env]['database']
-    username = @rails_db_config[env]['username']
-    password = @rails_db_config[env]['password']
+end
 
-    %[mysql -u #{username} --password="#{password}" #{database_name} < "#{path}"]
-  end
-
+# If this was a branch checkout
+if ARGV[2] == '1'
   def branches_from_refhead(ref)
     `git show-ref --heads | grep #{ref} | awk '{print $2}'`.split("\n").map{ |b| b.sub(/^refs\/heads\//, '') }
+  end
+
+  def prepare_test_database
+    if File.exists?("#{@project_root}/Rakefile")
+      print "Preparing test database..."
+
+      rake_cmd = "rake db:test:prepare"
+
+      if File.exists?("#{@project_root}/bin/rake")
+        rake_cmd = "./bin/#{rake_cmd}"
+      elsif File.exists?("#{@project_root}/Gemfile")
+        rake_cmd = "bundle exec #{rake_cmd}"
+      end
+
+      system rake_cmd
+
+      print "done!\n"
+    else
+      print "No Rakefile detected, skipping test database restoration\n"
+    end
   end
 
   # Get the current (destination) branch
@@ -134,6 +175,13 @@ if ARGV[2] == '1'
   @rails_db_config = YAML.load(ERB.new(File.read("#{@project_root}/config/database.yml")).result)
   dev_database_name = @rails_db_config['development']['database']
 
+  begin
+    @adapter = AbstractAdapter.build(@rails_db_config['development'], @dump_folder)
+  rescue UnsupportedDatabaseAdapter => e
+    puts "\nERROR: #{e.message}"
+    exit
+  end
+
   # Ensure dump directory exists
   unless Dir.exists?(@dump_folder)
     Dir.mkdir @dump_folder
@@ -142,43 +190,11 @@ if ARGV[2] == '1'
   # Don't do anything if the source and destination branches are the same or nonexistent
   unless @source_branches.include?(@destination_branch) || @source_branches.empty? || (@source_branches | [@destination_branch]).any?{ |b| b == '' }
     # Dump database for source branches
-    if @source_branches.all? { |branch| dump('development', branch) }
+    if @source_branches.all? { |branch| @adapter.dump(branch) }
       # Restore dump from this branch, if it exists
-      dump_path = dump_file(dev_database_name, @destination_branch)
-
-      if File.exists?(dump_path)
-        print "Restoring #{dev_database_name} to its previous state on this branch..."
-
-        if restore('development', dump_path)
-          print "done!\n"
-
-          # If we have a structure.sql file, restore that to the test database,
-          # otherwise fall back to rake
-          structure_sql = File.join(@project_root, 'db', 'structure.sql')
-
-          if File.exists?(structure_sql)
-            print "Restoring test database from structure.sql..."
-
-            print restore('test', structure_sql) ? "done!\n" : "failed!\n"
-          elsif File.exists?("#{@project_root}/Rakefile")
-            print "Preparing test database..."
-
-            rake_cmd = "rake db:test:prepare"
-
-            if File.exists?("#{@project_root}/bin/rake")
-              rake_cmd = "./bin/#{rake_cmd}"
-            elsif File.exists?("#{@project_root}/Gemfile")
-              rake_cmd = "bundle exec #{rake_cmd}"
-            end
-
-            system rake_cmd
-
-            print "done!\n"
-          else
-            print "No structure.sql or Rakefile detected, skipping test database restoration\n"
-          end
-        else
-          print "failed!\n"
+      if @adapter.dump_exists?(@destination_branch)
+        if @adapter.restore(@destination_branch)
+          prepare_test_database
         end
       else
         print "No DB dump for #{dev_database_name} on the '#{@destination_branch}' branch was found!\n"
