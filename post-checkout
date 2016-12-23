@@ -137,7 +137,7 @@ class PostgreSQLAdapter < AbstractAdapter
 
     if File.directory?(dump_file(branch_name))
       # Restore directory-format archive
-      %[pg_restore --dbname=#{database_name} --jobs=#{number_of_jobs} #{dump_file(branch_name)}]
+      %[pg_restore --dbname=#{database_name} --jobs=#{number_of_jobs} "#{dump_file(branch_name)}"]
     else
       # Restore legacy SQL dump
       %[psql --file="#{dump_file(branch_name)}" #{database_name} > /dev/null]
