@@ -7,7 +7,7 @@ Gem::Specification.new do |spec|
   spec.version       = Branchbot::VERSION
   spec.authors       = ["Jim Ryan"]
   spec.email         = ["jim@room118solutions.com"]
-
+  spec.license       = 'MIT'
   spec.summary       = "Saves and restores the state of your local database as you work on different git branches."
   spec.description   = spec.summary
   spec.homepage      = "https://github.com/room118solutions/branchbot"
