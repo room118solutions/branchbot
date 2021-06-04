@@ -13,8 +13,6 @@ Gem::Specification.new do |spec|
   spec.homepage      = "https://github.com/room118solutions/branchbot"
   spec.required_ruby_version = ">= 2.4.0"
 
-  spec.metadata["allowed_push_host"] = "TODO: Set to 'http://mygemserver.com'"
-
   spec.metadata["homepage_uri"] = spec.homepage
   spec.metadata["source_code_uri"] = "https://github.com/room118solutions/git-rails-database-branch-hook"
   # spec.metadata["changelog_uri"] = "TODO: Put your gem's CHANGELOG.md URL here."
