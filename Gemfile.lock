@@ -1,0 +1,22 @@
+PATH
+  remote: .
+  specs:
+    branchbot (0.1.0)
+      commander (~> 4.6.0)
+
+GEM
+  remote: https://rubygems.org/
+  specs:
+    commander (4.6.0)
+      highline (~> 2.0.0)
+    highline (2.0.3)
+
+PLATFORMS
+  ruby
+  x86_64-darwin-18
+
+DEPENDENCIES
+  branchbot!
+
+BUNDLED WITH
+   2.2.19

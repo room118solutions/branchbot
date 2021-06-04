@@ -1,4 +1,4 @@
-git-rails-database-branch-hook
+branchbot
 ==============================
 
 Save and restore the state of your Rails development and test databases as you work on different branches.
@@ -7,9 +7,14 @@ This allows you to make some changes to the structure of your database on a feat
 
 # Installation
 
-Download the `post-checkout` file into the `.git/hooks` directory of your project. Be sure to keep the `post-checkout` name to match Git's expectations.
+1. Install the gem:
+   
+    `gem install branchbot`
 
-Alternatively, you can clone this repository to your computer then symlink the `post-checkout` file into the `.git/hooks` directory of each of your projects. This allows you to manage the file in one place and be able to easily pull down updates.
+2. Download the `post-checkout` file into the `.git/hooks` directory of your project.
+   Modify to configure any flags.
+   
+   Note: Be sure to keep the `post-checkout` name to match Git's expectations.
 
 # Support
 

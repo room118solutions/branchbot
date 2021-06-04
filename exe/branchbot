@@ -1,0 +1,23 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "commander/import"
+require "branchbot"
+
+program :name, 'branchbot'
+program :version, Branchbot::VERSION
+program :description, "Saves and restores the state of your local database as you work on different git branches."
+
+command :switch do |cmd|
+  cmd.syntax = "branchbot switch [options]"
+  cmd.option '--from FROM_REF', String, 'ref switching from'
+
+  cmd.action do |args, options|
+    unless options.from
+      say "--from required"
+      return
+    end
+
+    Branchbot::BranchSwitcher.new.switch_from(options.from)
+  end
+end
