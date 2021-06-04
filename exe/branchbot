@@ -11,13 +11,18 @@ program :description, "Saves and restores the state of your local database as yo
 command :switch do |cmd|
   cmd.syntax = "branchbot switch [options]"
   cmd.option '--from FROM_REF', String, 'ref switching from'
+  cmd.option '--db-config-path path/to/database.yml', String, 'path to database.yml relative to project root (default: config/database.yml)'
 
   cmd.action do |args, options|
     unless options.from
       say "--from required"
-      return
+      next
     end
 
-    Branchbot::BranchSwitcher.new.switch_from(options.from)
+    options.default db_config_path: 'config/database.yml'
+
+    Branchbot::BranchSwitcher.new(
+      database_yml_path: options.db_config_path
+    ).switch_from(options.from)
   end
 end

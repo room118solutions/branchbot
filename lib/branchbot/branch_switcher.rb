@@ -1,5 +1,9 @@
 module Branchbot
   class BranchSwitcher
+    def initialize(database_yml_path: 'config/database.yml')
+      @database_yml_path = database_yml_path
+    end
+
     def switch_from(prev_ref)
       # Get the current (destination) branch
       @destination_branch = `git rev-parse --abbrev-ref HEAD`.strip
@@ -13,7 +17,7 @@ module Branchbot
       @dump_folder = "#{@project_root}/.db_branch_dumps"
 
       # Load Rails DB config and grab database name
-      @rails_db_config = YAML.load(ERB.new(File.read("#{@project_root}/config/database.yml")).result)
+      @rails_db_config = YAML.load(ERB.new(File.read(File.join @project_root, @database_yml_path)).result)
       dev_database_name = @rails_db_config['development']['database']
 
       begin
