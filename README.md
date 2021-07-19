@@ -19,7 +19,7 @@ This allows you to make some changes to the structure of your database on a feat
 # Options
 
 - `--app-root` - The app root relative to the project root (default: '.')
-- `--no-db-config-erb` - Normally, the database.yml file is interpreted as an ERB template before parsing as YML. This flag disables that behavior and parses it directly as YML.
+- `--db-config-erb` - Interpret database.yml as ERB an template before parsing as YML (default: disabled)
 
 # Support
 
