@@ -11,7 +11,7 @@ program :description, "Saves and restores the state of your local database as yo
 command :switch do |cmd|
   cmd.syntax = "branchbot switch [options]"
   cmd.option '--from FROM_REF', String, 'ref switching from'
-  cmd.option '--db-config-path path/to/database.yml', String, 'path to database.yml relative to project root (default: config/database.yml)'
+  cmd.option '--app-root relative/path/to/app', String, 'path to app root relative to project root (default: .)'
   cmd.option '--no-db-config-erb', 'Disables interpreting the database config as ERB before parsing YML'
 
   cmd.action do |args, options|
@@ -20,7 +20,7 @@ command :switch do |cmd|
       next
     end
 
-    options.default db_config_path: 'config/database.yml'
+    options.default app_root: '.'
     options.default no_db_config_erb: true
 
     # Invert --no-db-config-erb option since it's normally false
@@ -28,7 +28,7 @@ command :switch do |cmd|
     no_db_config_erb = !options.no_db_config_erb
 
     Branchbot::BranchSwitcher.new(
-      database_yml_path: options.db_config_path,
+      app_root: options.app_root,
       erb_in_database_yml: !no_db_config_erb
     ).switch_from(options.from)
   end

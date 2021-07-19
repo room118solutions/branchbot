@@ -1,7 +1,7 @@
 module Branchbot
   class BranchSwitcher
-    def initialize(database_yml_path: 'config/database.yml', erb_in_database_yml: true)
-      @database_yml_path = database_yml_path
+    def initialize(app_root: '.', erb_in_database_yml: true)
+      @app_root = app_root
       @project_root = %x[git rev-parse --show-toplevel].strip
       @dump_folder = "#{@project_root}/.db_branch_dumps"
       @erb_in_database_yml = erb_in_database_yml
@@ -57,19 +57,23 @@ module Branchbot
         `git show-ref --heads | grep #{ref} | awk '{print $2}'`.split("\n").map{ |b| b.sub(/^refs\/heads\//, '') }
       end
 
+      def app_root
+        File.join @project_root, @app_root
+      end
+
       def prepare_test_database
-        if File.exists?("#{@project_root}/Rakefile")
+        if File.exists?("#{app_root}/Rakefile")
           print "Preparing test database..."
 
           rake_cmd = "rake db:test:prepare"
 
-          if File.exists?("#{@project_root}/bin/rake")
+          if File.exists?("#{app_root}/bin/rake")
             rake_cmd = "./bin/#{rake_cmd}"
-          elsif File.exists?("#{@project_root}/Gemfile")
+          elsif File.exists?("#{app_root}/Gemfile")
             rake_cmd = "bundle exec #{rake_cmd}"
           end
 
-          system rake_cmd
+          system "cd #{app_root} && #{rake_cmd}"
 
           print "done!\n"
         else
@@ -77,8 +81,12 @@ module Branchbot
         end
       end
 
+      def db_config_path
+        File.join app_root, 'config', 'database.yml'
+      end
+
       def db_config_yml
-        database_yml_content = File.read(File.join @project_root, @database_yml_path)
+        database_yml_content = File.read(db_config_path)
 
         if @erb_in_database_yml
           ERB.new(database_yml_content).result
