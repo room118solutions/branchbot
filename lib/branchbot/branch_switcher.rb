@@ -1,7 +1,10 @@
 module Branchbot
   class BranchSwitcher
-    def initialize(database_yml_path: 'config/database.yml')
+    def initialize(database_yml_path: 'config/database.yml', erb_in_database_yml: true)
       @database_yml_path = database_yml_path
+      @project_root = %x[git rev-parse --show-toplevel].strip
+      @dump_folder = "#{@project_root}/.db_branch_dumps"
+      @erb_in_database_yml = erb_in_database_yml
     end
 
     def switch_from(prev_ref)
@@ -13,11 +16,8 @@ module Branchbot
       # destination branch, so we can remove that immediately.
       @source_branches = branches_from_refhead(prev_ref).reject{ |b| b == @destination_branch }
 
-      @project_root = %x[git rev-parse --show-toplevel].strip
-      @dump_folder = "#{@project_root}/.db_branch_dumps"
-
       # Load Rails DB config and grab database name
-      @rails_db_config = YAML.load(ERB.new(File.read(File.join @project_root, @database_yml_path)).result)
+      @rails_db_config = YAML.load(db_config_yml)
       dev_database_name = @rails_db_config['development']['database']
 
       begin
@@ -74,6 +74,16 @@ module Branchbot
           print "done!\n"
         else
           print "No Rakefile detected, skipping test database restoration\n"
+        end
+      end
+
+      def db_config_yml
+        database_yml_content = File.read(File.join @project_root, @database_yml_path)
+
+        if @erb_in_database_yml
+          ERB.new(database_yml_content).result
+        else
+          database_yml_content
         end
       end
     end
