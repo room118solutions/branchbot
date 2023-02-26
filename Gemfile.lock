@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    branchbot (0.1.0)
+    branchbot (0.2.1)
       commander (~> 4.6.0)
 
 GEM
@@ -19,4 +19,4 @@ DEPENDENCIES
   branchbot!
 
 BUNDLED WITH
-   2.2.19
+   2.4.7
