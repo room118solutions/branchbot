@@ -73,7 +73,7 @@ module Branchbot
             rake_cmd = "bundle exec #{rake_cmd}"
           end
 
-          system "cd #{app_root} && #{rake_cmd}"
+          system "cd \"#{app_root}\" && #{rake_cmd}"
 
           print "done!\n"
         else
