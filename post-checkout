@@ -194,7 +194,8 @@ if ARGV[2] == '1'
   @dump_folder = "#{@project_root}/.db_branch_dumps"
 
   # Load Rails DB config and grab database name
-  @rails_db_config = YAML.load(ERB.new(File.read("#{@project_root}/config/database.yml")).result)
+  config = ERB.new(File.read("#{@project_root}/config/database.yml")).result
+  @rails_db_config = YAML.respond_to?(:unsafe_load) ? YAML.unsafe_load(config) : YAML.load(config)
   dev_database_name = @rails_db_config['development']['database']
 
   begin
