@@ -53,7 +53,7 @@ class AbstractAdapter
   end
 
   def dump_exists?(branch_name)
-    File.exists?(dump_file(branch_name))
+    File.exist?(dump_file(branch_name))
   end
 
   def restore(branch_name)
@@ -163,14 +163,14 @@ if ARGV[2] == '1'
   end
 
   def prepare_test_database
-    if File.exists?("#{@project_root}/Rakefile")
+    if File.exist?("#{@project_root}/Rakefile")
       print "Preparing test database..."
 
       rake_cmd = "rake db:test:prepare"
 
-      if File.exists?("#{@project_root}/bin/rake")
+      if File.exist?("#{@project_root}/bin/rake")
         rake_cmd = "./bin/#{rake_cmd}"
-      elsif File.exists?("#{@project_root}/Gemfile")
+      elsif File.exist?("#{@project_root}/Gemfile")
         rake_cmd = "bundle exec #{rake_cmd}"
       end
 
@@ -206,7 +206,7 @@ if ARGV[2] == '1'
   end
 
   # Ensure dump directory exists
-  unless Dir.exists?(@dump_folder)
+  unless Dir.exist?(@dump_folder)
     Dir.mkdir @dump_folder
   end
 
